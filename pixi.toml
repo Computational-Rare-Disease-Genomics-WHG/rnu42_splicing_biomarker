@@ -1,0 +1,131 @@
+# pixi.toml — GEL-RE pixi environment for the renu_splicing_biomarker_ipscs
+# v4 signature extra-analyses pipeline (and future GEL-side R/python work).
+#
+# Why pixi: GEL RE is air-gapped; pixi installs go through the GEL artifactory
+# mirror. This avoids the install.packages() dance + Bioconductor config and
+# gives us reproducible R + bioinformatics env (ggseqlogo, tximport, samtools,
+# ensembl-vep, ...) for both Desktop and HPC.
+#
+# Setup (one-time, on GEL):
+#   1. Confirm pixi is on PATH and PIXI_HOME is set per
+#      https://github.com/alexblakes/snippets/blob/main/gel_pixi.md
+#      (PIXI_HOME on /re_gecip/<group>/, $PATH includes $PIXI_HOME).
+#   2. Edit `conda-pypi-map` paths below to point at YOUR
+#      compressed_mapping.json under $PIXI_HOME (the same one you set up
+#      per Alex's doc — typically $PIXI_HOME/compressed_mapping.json).
+#   3. From this repo's root inside the GEL workspace:
+#        pixi install
+#   4. Run scripts via either:
+#        pixi run Rscript scripts/gel/v4_signature_extra_analyses.R --only A,D1
+#      or:
+#        pixi shell                           # activates env in current shell
+#        Rscript scripts/gel/v4_signature_extra_analyses.R --only A,D1
+#      For RStudio Desktop:
+#        pixi run rstudio
+#      (RStudio launched outside `pixi shell` will not see pixi packages.)
+#
+# Local (UK Mac) usage: this file is GEL-targeted (linux-64). On Mac,
+# pixi will refuse to resolve. The local D2 SpliceAI script does not depend
+# on pixi — keep using your normal local R there.
+
+[workspace]
+name             = "renu-splicing-biomarker-gel"
+description      = "v4 signature extra-analyses on GEL: indel encoding + GTF region, gene TPM, 5'SS PWM"
+# GEL artifactory exposes conda-forge under the path "conda-conda-forge"
+# and bioconda under "conda-bioconda" (per Alex's doc). The mirror rewrite
+# (set in $PIXI_HOME/config.toml) routes these names to the artifactory.
+channels         = ["conda-conda-forge", "conda-bioconda"]
+platforms        = ["linux-64"]
+
+# The compressed_mapping.json is your local copy from
+# https://github.com/prefix-dev/parselmouth/blob/main/files/compressed_mapping.json
+# (per Alex's doc). Edit this path before running `pixi install`.
+# Keys must match the channel names declared above (NOT "conda-forge"/"bioconda").
+conda-pypi-map = { conda-conda-forge = "${PIXI_HOME}/compressed_mapping.json", conda-bioconda = "${PIXI_HOME}/compressed_mapping.json" }
+
+[system-requirements]
+# Obtained on GEL Desktop with: ldd --version  -> glibc 2.35.
+# If HPC has older glibc this should be LOWERED to match (the lower of the
+# two), otherwise pixi-resolved binaries won't run on HPC. Re-check with
+# `ldd --version` on the HPC login node if anything fails on HPC.
+libc = { family = "glibc", version = "2.35" }
+
+# ---- Dependencies ----------------------------------------------------------
+# Pin loosely — bump as the pipeline evolves. R 4.5.x to match the
+# pre-installed system path the script's libpath block expects.
+
+[dependencies]
+# Pixi env for v4_signature_extra_analyses.R. We tried pinning r-base to 4.5.3
+# (matching GEL system R) so pixi-R could re-use packages from
+# ~/re_gecip/.../R_packages, but the GEL artifactory mirror doesn't have a
+# 4.5.3 build (likely 4.5.2 is the newest). Pixi's r-base is therefore
+# version-mismatched with the user lib, and the libpath block in the R script
+# detects this via PIXI_ENVIRONMENT_NAME and skips the user lib when active
+# (otherwise we get "undefined symbol: R_mkClosure" loading rlang/ggplot2).
+#
+# Consequence: every R package a script imports under pixi must be declared
+# here. All GEL figure scripts (figure1.R, figure2.R, figure_s1/s2/s3.R) and
+# loo_evaluate_v4_lasso.R run under pixi. Heavy system-R scripts like
+# build_psi_matrix.R stay on system R.
+#
+# samtools is installed for analysis B/D1 (FASTA fetch); the GEL `module load
+# samtools` also works if you're staying outside pixi.
+#
+# ensembl-vep was tried here but the GEL artifactory copy of libdb-6.2.32
+# (a transitive perl dep) is corrupted and fetch fails repeatedly. Use the
+# GEL LSF wrapper for VEP instead (analysis B default VEP_MODE=wrapper). If
+# the artifactory copy is fixed in future, re-add `ensembl-vep = ">=115"`.
+
+r-ggplot2              = "*"
+r-ggrepel              = "*"   # label repulsion for lollipop plot in figure1.R panel A
+r-ggseqlogo            = "*"
+r-patchwork            = "*"   # multi-panel composition for figure 2 (analysis F)
+                               # and the analysis E section-stacked layout
+r-ggpubr               = "*"   # figure_s4.R outer assembly (exception to
+                               # patchwork-only rule: patchwork forced
+                               # Panel C to align against Panel B's y-axis)
+r-gridextra            = "*"   # grid.arrange / textGrob for severity_residual_pca_explore.R
+                               # (and any future side-by-side panel layouts)
+r-eulerr               = "*"   # proportional Euler diagrams for figure1.R /
+                               # figure2.R significance-overlap panels
+r-polyclip             = "*"   # eulerr Suggests -- required by eulerr::plot()
+r-pheatmap             = "*"   # supplementary figure 1: clustered heatmap with
+                               # row dendrogram + multi-track annotations + per-
+                               # track legends. Single-call replacement for the
+                               # earlier ggplot+gridExtra cobble in figure_s1.R.
+r-matrix               = "*"   # sparse matrix support for plot_lasso_lambda_sweep.R
+                               # (reads cv_fit$glmnet.fit$beta which is a dgCMatrix)
+r-glmnet               = "*"   # L1-penalised logistic regression (cv.glmnet)
+                               # for loo_evaluate_v4_lasso.R
+r-upsetr               = "*"   # UpSet intersection plots
+r-biocmanager          = "*"   # for installing GenomeInfoDbData inside pixi-R
+                                # (its conda post-link script downloads via curl
+                                # through the GEL TLS proxy, which fails;
+                                # GenomeInfoDbData is a transitive dep of
+                                # Rsamtools via GenomeInfoDb)
+# In-R reference sequence access via Rsamtools::scanFa, against the GEL
+# /public_data_resources/reference/GRCh38/GRCh38Decoy_no_alt.fa FASTA. This
+# replaces both the samtools faidx subprocess approach and BSgenome.Hsapiens
+# (BSgenome downloads ~700 MB at install time and that fails behind the GEL
+# TLS-intercepting proxy; Rsamtools just reads the FASTA file in-place, no
+# network).
+bioconductor-rsamtools = "*"
+
+# ---- Tasks -----------------------------------------------------------------
+# `pixi run <task>` from the repo root.
+
+[tasks]
+# Smoke test: confirm every declared dep is loadable from inside the env.
+# Run after `pixi install` to check that the env is healthy.
+smoke-test = """
+  echo '--- R version ---' && \
+  R --version | head -n 1 && \
+  echo '--- R packages (pixi-installed only) ---' && \
+  Rscript -e 'pkgs <- c("ggplot2","ggseqlogo","patchwork","gridExtra","pheatmap","Matrix","Rsamtools","BiocManager"); for (p in pkgs) { ok <- suppressWarnings(suppressMessages(requireNamespace(p, quietly=TRUE))); cat(sprintf("%-15s %s\\n", p, if (ok) "OK" else "FAIL")) }'
+"""
+
+# Sets standard env vars + runs the R script. Use --only to subset.
+analyses = """
+  FASTA_PATH=/public_data_resources/reference/GRCh38/GRCh38Decoy_no_alt.fa \
+  Rscript scripts/gel/v4_signature_extra_analyses.R
+"""

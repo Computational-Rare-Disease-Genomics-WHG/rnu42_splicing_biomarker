@@ -1,0 +1,34 @@
+{
+    "individual_counts": false,
+    "darts_cutoff": 0.05,
+    "lib_type": "fr-unstranded",
+    "allow_clipping": true,
+    "publishDir": "s3://aso-therapies/ReNU_therapies/03-analysis/experiment001/RMATS/DIV5",
+    "tstat": 1,
+    "mil": 50,
+    "rmats_version": "v4.3.0",
+    "readLength": 150,
+    "mel": 500,
+    "nthread": 4,
+    "out_dir": "div5",
+    "darts_model": false,
+    "statoff": false,
+    "bam_g2": [
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-4-KOLF1-DIV5.markdup.sorted.bam",
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-5-KOLF2-DIV5.markdup.sorted.bam",
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-6-KOLF3-DIV5.markdup.sorted.bam"
+    ],
+    "gtf": "s3://GRCh38-references/gencode/Gencode_human/release_49/gencode.v49.primary_assembly.annotation.gtf",
+    "novelSS": true,
+    "is_single_end": false,
+    "variable_read_length": true,
+    "paired_stats": false,
+    "machine_mem_gb": 16,
+    "cstat": 0.0001,
+    "bam_g1": [
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-4-ReNU8-DIV5.markdup.sorted.bam",
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-5-ReNU11-DIV5.markdup.sorted.bam",
+        "s3://aso-therapies/ReNU_therapies/02-aligned/experiment001/star_salmon/Sample-6-ReNU12-DIV5.markdup.sorted.bam"
+    ],
+    "anchorLength": false
+}
