@@ -51,3 +51,9 @@ Thumbs.db
 *.html
 *.code-workspace
 /csf
+
+# ── One-off scripts kept out of the repo ───────────────────────────────────────
+scripts/gel/export_signature_scores_for_coauthor.R
+scripts/gel/list_wb_control_insT_outliers.R
+scripts/gel/donor_variant_check.R
+__pycache__/
